@@ -17,12 +17,13 @@ use CachetHQ\Cachet\Bus\Events\Subscriber\SubscriberHasSubscribedEvent;
 use CachetHQ\Cachet\Models\Component;
 use CachetHQ\Cachet\Models\Subscriber;
 use CachetHQ\Cachet\Models\Subscription;
+use CachetHQ\Cachet\Notifications\Subscriber\VerifySubscriptionNotification;
 
 /**
  * This is the subscribe subscriber command handler.
  *
  * @author James Brooks <james@alt-three.com>
- * @author Joe Cohen <joe@alt-three.com>
+ * @author Joseph Cohen <joe@alt-three.com>
  * @author Graham Campbell <graham@alt-three.com>
  */
 class SubscribeSubscriberCommandHandler
@@ -36,7 +37,7 @@ class SubscribeSubscriberCommandHandler
      */
     public function handle(SubscribeSubscriberCommand $command)
     {
-        if ($subscriber = Subscriber::where('email', $command->email)->first()) {
+        if ($subscriber = Subscriber::where('email', '=', $command->email)->first()) {
             return $subscriber;
         }
 
@@ -49,7 +50,7 @@ class SubscribeSubscriberCommandHandler
             $components = Component::all();
         }
 
-        $components->map(function ($component) use ($subscriber) {
+        $components->each(function ($component) use ($subscriber) {
             Subscription::create([
                 'subscriber_id' => $subscriber->id,
                 'component_id'  => $component->id,
@@ -59,8 +60,10 @@ class SubscribeSubscriberCommandHandler
         if ($command->verified) {
             dispatch(new VerifySubscriberCommand($subscriber));
         } else {
-            event(new SubscriberHasSubscribedEvent($subscriber));
+            $subscriber->notify(new VerifySubscriptionNotification());
         }
+
+        event(new SubscriberHasSubscribedEvent($subscriber));
 
         $subscriber->load('subscriptions');
 
